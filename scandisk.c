@@ -19,30 +19,15 @@ void usage(char *progname) {
     fprintf(stderr, "usage: %s <imagename>\n", progname);
     exit(1);
 }
-void delete(Node *head){
-    while(head != NULL){
-        Node *temp = head;
-        head = head->next;
-        free(temp->ctx.uc_stack.ss_sp);
-        free(temp);
-    }
-    //return;
-}
-void insert(Node *newta, Node **head){
-    if ((*head) == NULL) {
-        *head = newta; 
-    }
-    else{
-        Node *curr = *head;
-        while(curr->next != NULL){
-            curr = curr->next;
-        }
 
-        curr->next = newta;
-
-    }
+void print_indent(int indent)
+{
+    int i;
+    for (i = 0; i < indent*4; i++)
+    printf(" ");
 }
-uint16_t print_dirent(struct direntry *dirent, int indent)
+
+uint16_t print_dirent(struct direntry *dirent, int indent, int8_t *image_buf, uint16_t cluster, struct bpb33 *bpb)
 {
     uint16_t followclust = 0;
 
@@ -119,19 +104,40 @@ uint16_t print_dirent(struct direntry *dirent, int indent)
          * a "regular" file entry
          * print attributes, size, starting cluster, etc.
          */
+        /*
         int ro = (dirent->deAttributes & ATTR_READONLY) == ATTR_READONLY;
         int hidden = (dirent->deAttributes & ATTR_HIDDEN) == ATTR_HIDDEN;
         int sys = (dirent->deAttributes & ATTR_SYSTEM) == ATTR_SYSTEM;
         int arch = (dirent->deAttributes & ATTR_ARCHIVE) == ATTR_ARCHIVE;
+        */
+        uint16_t cluster_num = getushort(dirent->deStartCluster);
 
-        size = getulong(dirent->deFileSize);
+        uint32_t size = getulong(dirent->deFileSize); 
         print_indent(indent);
-        printf("%s.%s (%u bytes) (starting cluster %d) %c%c%c%c\n", 
+        int count = 0;
+/*        printf("%s.%s (%u bytes) (starting cluster %d) %c%c%c%c\n", 
                name, extension, size, getushort(dirent->deStartCluster),
                ro?'r':' ', 
                    hidden?'h':' ', 
                    sys?'s':' ', 
-                   arch?'a':' ');
+                   arch?'a':' ');*/
+        while(is_valid_cluster(cluster, bpb)){
+            uint16_t fat_entry = get_fat_entry(cluster_num, image_buf, bpb);
+            if(is_end_of_file(fat_entry)){
+                break;
+            }
+            else if (fat_entry == CLUST_FREE){
+                printf("FREE\n");
+                break;
+            }
+            else if (fat_entry == CLUST_BAD){
+                printf("BAD\n");
+                break;
+            }
+            else{
+                count ++;
+            }
+        }
     }
 
     return followclust;
